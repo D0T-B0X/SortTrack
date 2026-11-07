@@ -1,6 +1,6 @@
 # High Level Design Documentation
 
-This document provides an abstract overview of the library's functions. It defines how the user can utilize the library and how those functionalities are implemented.
+This document provides an abstract overview of the library's functions. It defines how the user can utilize the library and how those functions are implemented.
 
 ## User API
 
@@ -31,4 +31,21 @@ Once all the passes are over, the final output is written to the memory address 
 </p>
 
 ## Modules
+
+### Host
+
+ - An input verification module checks the input size and uses CPP's `std:sort()` to handle the output when it is below a certain threshold, since GPU based parallel sorting algorithms only provide a decent edge over CPU based algorithms when the input size is large.
+ - The host code also handles system synchronization and vram buffer allocation before any kernels can execute on the device.
+
+### Device
+
+The GPU will utilize 3 kernels:
+
+ - Historgram generation needs its own kernel, where all values are dropped into buckets pertaining to that values 4-bit key.
+ - The decoupled lookback prefix scan executes on a standalone kernel that handles a single pass of the state machine.
+ - The scatter kernel redistributes all sorted values to their correct indices and swaps the input and output vram buffers.
+
+## Memory Requirements
+
+Every input array needs an equal size output array on host memory. On device memory, the library needs two buffers for input-output ping pong, each of size `num_members * 4` bytes. Furthermore, every partition in the decoupled lookback prefix sum maintains a partition descriptor, which needs an additional `num_descriptors * sizeof(descriptor)` bytes.
 
