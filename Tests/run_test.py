@@ -22,8 +22,10 @@ COLUMNS = [
     "test_type",
     "test_size",
     "onesweep_ms",
+    "rocprim_ms",
     "cpu_ms",
-    "speedup",
+    "speedup",          # cpu_ms / onesweep_ms
+    "vs_rocprim",       # onesweep_ms / rocprim_ms  (>1 means onesweep is slower)
     *[f"{k}_ms" for k in KERNEL_KEYS],
     "status",
 ]
@@ -33,6 +35,11 @@ PATTERNS = {
     "test_size": re.compile(r"Test Size:\s*(\d+)"),
     "onesweep_ms": re.compile(r"Onesweep time:\s*([\d.eE+-]+)\s*ms"),
     "cpu_ms": re.compile(r"CPU time:\s*([\d.eE+-]+)\s*ms"),
+}
+# Not required, so binaries that don't print a rocPRIM line still log.
+# Matches "ROCM time: 1.2ms" and "Rocprim time: 1.2ms" (the scratch-space line has no "time:").
+OPTIONAL_PATTERNS = {
+    "rocprim_ms": re.compile(r"(?:rocm|rocprim)\s+time:\s*([\d.eE+-]+)\s*ms", re.IGNORECASE),
 }
 # Lines printed by RadixSort::sort, e.g. "Kernel bin2: 41.2ms"
 KERNEL_PATTERN = re.compile(r"Kernel\s+(hist|scan|bin\d+):\s*([\d.eE+-]+)\s*ms")
@@ -45,7 +52,10 @@ def parse_output(text: str) -> dict:
         if match is None:
             raise ValueError(f"could not find '{key}' in test output")
         row[key] = match.group(1).strip()
-    # per-kernel times are optional so older binaries still log
+    for key, pattern in OPTIONAL_PATTERNS.items():
+        match = pattern.search(text)
+        if match is not None:
+            row[key] = match.group(1).strip()
     for name, value in KERNEL_PATTERN.findall(text):
         if name in KERNEL_KEYS:
             row[f"{name}_ms"] = value
@@ -84,7 +94,7 @@ def main() -> int:
     ap.add_argument("--exe", type=Path, default=ROOT / "build" / "SortTrack_test",
                     help="path to the test binary (default: <project root>/build/SortTrack_test)")
     ap.add_argument("--results", type=Path, default=ROOT / "results.csv",
-                    help="results file (default: results.csv next to this script)")
+                    help="results file (default: <project root>/results.csv)")
     ap.add_argument("--timeout", type=int, default=600, help="seconds before giving up")
     args = ap.parse_args()
 
@@ -132,6 +142,8 @@ def main() -> int:
 
     row.update(parsed)
     row["speedup"] = f"{float(row['cpu_ms']) / float(row['onesweep_ms']):.3f}"
+    if row["rocprim_ms"]:
+        row["vs_rocprim"] = f"{float(row['onesweep_ms']) / float(row['rocprim_ms']):.3f}"
     row["status"] = "ok"
     append_row(args.results, row)
 
