@@ -19,13 +19,39 @@ set(CMAKE_HIP_STANDARD 17)
 find_package(hip REQUIRED)
 find_package(rocprim REQUIRED)
 
+option(LOCAL_HISTOGRAM "skips local histogram in bin" OFF)
+option(SCATTER "skips scatter" OFF)
+option(LOOKBACK "skips lookback" OFF)
+
 add_library(onesweep STATIC lib/onesweep.hip)
 target_include_directories(onesweep PUBLIC lib)
 target_link_libraries(onesweep PUBLIC hip::host)
 target_link_libraries(onesweep PRIVATE roc::rocprim_hip)
 
+if (LOCAL_HISTOGRAM)
+  target_compile_definitions(onesweep PRIVATE LOCAL_HISTOGRAM)
+endif()
+if (LOOKBACK)
+  target_compile_definitions(onesweep PRIVATE LOOKACK)
+endif()
+if (SCATTER)
+  target_compile_definitions(onesweep PRIVATE SCATTER)
+endif()
+
 add_executable(${PROJECT_NAME}_test Tests/test.cpp)
 target_include_directories(${PROJECT_NAME}_test PRIVATE Tests)
 target_link_libraries(${PROJECT_NAME}_test PRIVATE onesweep)
 target_compile_definitions(${PROJECT_NAME}_test PRIVATE
+  TEST_CSV_PATH="${CMAKE_CURRENT_SOURCE_DIR}/Tests/tests.csv")
+
+add_executable(${PROJECT_NAME}_r Tests/rocprim_test.cpp)
+target_include_directories(${PROJECT_NAME}_r PRIVATE Tests)
+target_link_libraries(${PROJECT_NAME}_r PRIVATE onesweep)
+target_compile_definitions(${PROJECT_NAME}_r PRIVATE
+  TEST_CSV_PATH="${CMAKE_CURRENT_SOURCE_DIR}/Tests/tests.csv")
+
+add_executable(${PROJECT_NAME}_o Tests/onesweep.cpp)
+target_include_directories(${PROJECT_NAME}_o PRIVATE Tests)
+target_link_libraries(${PROJECT_NAME}_o PRIVATE onesweep)
+target_compile_definitions(${PROJECT_NAME}_o PRIVATE
   TEST_CSV_PATH="${CMAKE_CURRENT_SOURCE_DIR}/Tests/tests.csv")

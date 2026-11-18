@@ -51,7 +51,6 @@ int main(int argc, char* argv[]) {
     }
 
     std::chrono::duration<double, std::milli> h_time = stop - start;
-
     std::cout << "Test Type: Random\nTest Size: " << TEST_SIZE << "\n\nOnesweep time: " << d_time << "ms\nCPU time: " << h_time.count() << "ms\nROCM time: " << r_time << "ms\n";
 
     return 0;

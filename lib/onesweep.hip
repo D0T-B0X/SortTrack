@@ -43,19 +43,20 @@ GlobalHistogram(
     }
     __syncthreads();
 
+    // load keys
     uint32_t wave_offset = block_id * KEYS_PER_BLOCK + wave_id * KEYS_PER_WAVE;
+
     #pragma unroll
     for(uint32_t i = 0; i < KEYS_PER_THREAD; ++i) {
 
         uint32_t key_index = wave_offset + (i * THREADS_PER_WAVE) + lane;
-        if (key_index < nmem) {
+        if (key_index >= nmem) continue;
 
-            uint32_t key = d_keys[key_index];
-            #pragma unroll
-            for(uint32_t pass = 0; pass < TOTAL_PASSES; ++pass) {
-                uint32_t key_digit = (key >> (pass * BITS_PER_PASS)) & (BUCKETS - 1);
-                atomicAdd(&block_histogram[wave_id][pass][key_digit], 1u);
-            }
+        uint32_t key = d_keys[key_index];
+        #pragma unroll
+        for(uint32_t pass = 0; pass < TOTAL_PASSES; ++pass) {
+            uint32_t key_digit = (key >> (pass * BITS_PER_PASS)) & (BUCKETS - 1);
+            atomicAdd(&block_histogram[wave_id][pass][key_digit], 1u);
         }
     }
     __syncthreads();
