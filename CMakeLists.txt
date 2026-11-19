@@ -1,10 +1,12 @@
 cmake_minimum_required(VERSION 3.24)
+project(SortTrack LANGUAGES CXX HIP)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(NOT DEFINED CMAKE_HIP_ARCHITECTURES)
   set(CMAKE_HIP_ARCHITECTURES gfx1100)
 endif()
 
-project(SortTrack LANGUAGES CXX HIP)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -41,17 +43,20 @@ endif()
 add_executable(${PROJECT_NAME}_test Tests/test.cpp)
 target_include_directories(${PROJECT_NAME}_test PRIVATE Tests)
 target_link_libraries(${PROJECT_NAME}_test PRIVATE onesweep)
+target_compile_features(${PROJECT_NAME}_test PRIVATE cxx_std_23)
 target_compile_definitions(${PROJECT_NAME}_test PRIVATE
   TEST_CSV_PATH="${CMAKE_CURRENT_SOURCE_DIR}/Tests/tests.csv")
 
 add_executable(${PROJECT_NAME}_r Tests/rocprim_test.cpp)
 target_include_directories(${PROJECT_NAME}_r PRIVATE Tests)
 target_link_libraries(${PROJECT_NAME}_r PRIVATE onesweep)
+target_compile_features(${PROJECT_NAME}_r PRIVATE cxx_std_23)
 target_compile_definitions(${PROJECT_NAME}_r PRIVATE
   TEST_CSV_PATH="${CMAKE_CURRENT_SOURCE_DIR}/Tests/tests.csv")
 
 add_executable(${PROJECT_NAME}_o Tests/onesweep.cpp)
 target_include_directories(${PROJECT_NAME}_o PRIVATE Tests)
 target_link_libraries(${PROJECT_NAME}_o PRIVATE onesweep)
+target_compile_features(${PROJECT_NAME}_o PRIVATE cxx_std_23)
 target_compile_definitions(${PROJECT_NAME}_o PRIVATE
   TEST_CSV_PATH="${CMAKE_CURRENT_SOURCE_DIR}/Tests/tests.csv")

@@ -1,7 +1,5 @@
 #include "onesweep.hpp"
 
-
-#include <chrono>
 #include <hip/amd_detail/amd_hip_atomic.h>
 #include <hip/amd_detail/amd_hip_runtime.h>
 #include <hip/amd_detail/amd_warp_sync_functions.h>
@@ -268,35 +266,11 @@ float
 RadixSort::sort(std::vector<uint32_t>& input, size_t nmem) {
     if (nmem == 0) return 0.0;
 
-    if (nmem < 1000000) {
-        auto start = std::chrono::steady_clock::now();
-        std::sort(input.begin(), input.end());
-        auto end = std::chrono::steady_clock::now();
-
-        std::chrono::duration<double, std::milli> time = end - start;
-        return static_cast<float>(time.count()); 
-    }
-
     hipEvent_t start, stop;
     HIP_CHECK(hipEventCreate(&start));
     HIP_CHECK(hipEventCreate(&stop));
 
     const size_t block_count = (nmem + KEYS_PER_BLOCK - 1) / KEYS_PER_BLOCK;
-
-    // slot 0 = histogram, 1 = scan, 2.. = one per binning pass
-    float kernel_ms[2 + TOTAL_PASSES] = {};
-    float ms = 0.0;
-    auto time_kernel = [&](size_t slot, auto&& launch) {
-        HIP_CHECK(hipEventRecord(start));
-        launch();
-        HIP_CHECK(hipGetLastError());
-        HIP_CHECK(hipEventRecord(stop));
-        HIP_CHECK(hipEventSynchronize(stop));
-        float t = 0.0;
-        HIP_CHECK(hipEventElapsedTime(&t, start, stop));
-        kernel_ms[slot] = t;
-        ms += t;
-    };
 
     uint32_t* d_input               = nullptr;
     uint32_t* d_output              = nullptr;
@@ -310,37 +284,38 @@ RadixSort::sort(std::vector<uint32_t>& input, size_t nmem) {
     // upload input to gpu vram
     HIP_CHECK(hipMemcpy(d_input, input.data(), sizeof(uint32_t) * nmem, hipMemcpyHostToDevice));
 
+    HIP_CHECK(hipEventRecord(start));
+
     // Global Histogram
     HIP_CHECK(hipMemsetAsync(global_histogram, 0, TOTAL_PASSES * BUCKETS * sizeof(uint32_t)));
-    time_kernel(0, [&] {
-        OnesweepRadixSort::GlobalHistogram<<<block_count, BUCKETS>>>(
+    OnesweepRadixSort::GlobalHistogram<<<block_count, BUCKETS>>>(
             d_input,
             global_histogram,
             nmem
-        );
-    });
+    );
 
     // Hist scan
-    time_kernel(1, [&] {
-        OnesweepRadixSort::GlobalHistogramScan<<<TOTAL_PASSES,  BUCKETS>>>(global_histogram);
-    });
+    OnesweepRadixSort::GlobalHistogramScan<<<TOTAL_PASSES,  BUCKETS>>>(global_histogram);
 
     // 4 pass binning
     for (uint32_t pass = 0; pass < TOTAL_PASSES; ++pass) {
         HIP_CHECK(hipMemsetAsync(block_data, 0, block_count * BUCKETS * sizeof(uint32_t)));
 
-        time_kernel(2 + pass, [&] {
-            OnesweepRadixSort::Bin<<<block_count, BUCKETS>>>(
-                block_data,
-                d_output,
-                d_input,
-                global_histogram,
-                nmem,
-                pass);
-        });
+        OnesweepRadixSort::Bin<<<block_count, BUCKETS>>>(
+            block_data,
+            d_output,
+            d_input,
+            global_histogram,
+            nmem,
+            pass);
 
         RadixSort::swap_pointers(&d_input, &d_output);
     }
+
+    float ms = 0.0f;
+    HIP_CHECK(hipEventRecord(stop));
+    HIP_CHECK(hipEventSynchronize(stop));
+    HIP_CHECK(hipEventElapsedTime(&ms, start, stop));
 
     // transfer the output back
     HIP_CHECK(hipMemcpy(input.data(), d_input, nmem * sizeof(uint32_t), hipMemcpyDeviceToHost));
@@ -353,13 +328,6 @@ RadixSort::sort(std::vector<uint32_t>& input, size_t nmem) {
 
     HIP_CHECK(hipEventDestroy(start));
     HIP_CHECK(hipEventDestroy(stop));
-
-    // per-kernel breakdown (parsed by run_test.py)
-    std::cout << "Kernel hist: " << kernel_ms[0] << "ms\n"
-              << "Kernel scan: " << kernel_ms[1] << "ms\n";
-    for (uint32_t pass = 0; pass < TOTAL_PASSES; ++pass) {
-        std::cout << "Kernel bin" << pass << ": " << kernel_ms[2 + pass] << "ms\n";
-    }
 
     return ms;
 }

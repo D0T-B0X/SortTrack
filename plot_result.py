@@ -18,9 +18,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 
 SERIES = [
-    ("onesweep_ms", "Onesweep", "o"),
+    ("onesweep_ms", "Onesweep (My implementation)", "o"),
     ("rocprim_ms", "rocPRIM (AMD)", "s"),
-    ("cpu_ms", "C++ std::sort()", "^"),
+    # ("cpu_ms", "C++ std::sort()", "^"),
 ]
 AGGREGATORS = {
     "median": statistics.median,
@@ -107,7 +107,7 @@ def main() -> int:
     ax.legend()
     fig.tight_layout()
 
-    fig.savefig(args.out, dpi=150)
+    fig.savefig(args.out, dpi=300)
     print(f"saved {args.out}")
     if args.show:
         plt.show()
