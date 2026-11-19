@@ -64,9 +64,9 @@ This phase makes $1n$ memory writes, bringing total memory references to $2n$.
 
 ## System Specifications
 
-CPU: AMD Ryzen 7 8840HS
-GPU: Radeon 780M (4 GB VRAM shared with host memory)
-RAM: 32 GB DDR5 5600 MT/s 
+ - CPU: AMD Ryzen 7 8840HS
+ - GPU: Radeon 780M (4 GB VRAM shared with host memory)
+ - RAM: 32 GB DDR5 5600 MT/s 
 
 ## Results
 
